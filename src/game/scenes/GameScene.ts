@@ -34,6 +34,7 @@ import { GameStateEvents, GameStateSystem } from '../systems/GameStateSystem'
 import { InputEvents, InputSystem, type LetterInputEvent } from '../systems/InputSystem'
 import { getParticleSystem } from '../systems/ParticleSystem'
 import { getSaveSystem } from '../systems/SaveSystem'
+import { Button } from '../ui/components/Button'
 import { type DebugOverlay, installDebugOverlay } from '../utils/debug'
 import { getPhraseManager } from '../utils/random'
 import { UIEvents } from './UIScene'
@@ -74,6 +75,9 @@ export class GameScene extends Phaser.Scene {
 
   /** Wedge value display */
   private wedgeValueText!: Phaser.GameObjects.Text
+
+  /** Spin button */
+  private spinButton!: Button
 
   constructor() {
     super({ key: SceneKeys.GAME })
@@ -490,7 +494,7 @@ export class GameScene extends Phaser.Scene {
   private createStatusDisplay(): void {
     // Status text below wheel
     this.statusText = this.add
-      .text(380, 880, 'SPIN THE WHEEL!', {
+      .text(380, 860, 'SPIN THE WHEEL!', {
         fontFamily: typography.fontFamily.display,
         fontSize: `${typography.fontSize.xl}px`,
         color: colors.accent,
@@ -501,7 +505,7 @@ export class GameScene extends Phaser.Scene {
 
     // Wedge value display
     this.wedgeValueText = this.add
-      .text(380, 920, '', {
+      .text(380, 900, '', {
         fontFamily: typography.fontFamily.body,
         fontSize: `${typography.fontSize.lg}px`,
         color: colors.textSecondary,
@@ -509,6 +513,33 @@ export class GameScene extends Phaser.Scene {
         resolution: 2,
       })
       .setOrigin(0.5)
+
+    // Spin button
+    this.spinButton = new Button(this, {
+      x: 380,
+      y: 980,
+      text: 'SPIN',
+      width: 160,
+      height: 56,
+      fillColor: colors.primary,
+      strokeColor: colors.secondary,
+      fontSize: typography.fontSize.xl,
+      onClick: () => {
+        this.handleSpinButton()
+      },
+    })
+  }
+
+  /**
+   * Handle spin button click
+   */
+  private handleSpinButton(): void {
+    if (this.gameState.canSpin()) {
+      const result = this.gameState.startSpin()
+      if (result.success) {
+        this.wheel.spin()
+      }
+    }
   }
 
   /**
@@ -562,6 +593,7 @@ export class GameScene extends Phaser.Scene {
   private updateWheelInteractivity(): void {
     const canSpin = this.gameState.canSpin()
     this.wheel.setSpinEnabled(canSpin)
+    this.spinButton.setDisabled(!canSpin)
   }
 
   /**

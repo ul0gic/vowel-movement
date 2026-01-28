@@ -88,6 +88,12 @@ export class Wheel extends Phaser.GameObjects.Container {
   /** Cached segment data for hit detection */
   private readonly segmentData: readonly WheelWedge[] = wheelSegments
 
+  /** Spin start time for timeout fallback */
+  private spinStartTime: number = 0
+
+  /** Maximum spin duration in ms before forcing stop */
+  private readonly MAX_SPIN_DURATION = 15000
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y)
 
@@ -327,6 +333,9 @@ export class Wheel extends Phaser.GameObjects.Container {
     // Reset tick tracker
     this.tickTracker = createTickTracker()
 
+    // Record start time for timeout fallback
+    this.spinStartTime = Date.now()
+
     // Update state
     this.wheelState = 'spinning'
     this.canSpin = false
@@ -386,7 +395,21 @@ export class Wheel extends Phaser.GameObjects.Container {
     }
 
     // Check if wheel just stopped (physics update can stop the wheel)
-    if (!this.physicsState.isSpinning) {
+    // Also check for timeout fallback to prevent getting stuck
+    const timedOut = Date.now() - this.spinStartTime > this.MAX_SPIN_DURATION
+    if (!this.physicsState.isSpinning || timedOut) {
+      if (timedOut) {
+        // Force stop the physics
+        this.physicsState = {
+          ...this.physicsState,
+          angularVelocity: 0,
+          isSpinning: false,
+        }
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('[Wheel] Spin timed out, forcing stop')
+        }
+      }
       this.onSpinComplete()
     }
   }

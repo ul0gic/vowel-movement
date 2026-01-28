@@ -8,28 +8,28 @@
  */
 export const WheelPhysicsConfig = {
   /** Friction coefficient - affects deceleration rate */
-  friction: 0.985,
+  friction: 0.988,
 
   /** Minimum velocity before stopping (radians per second) */
-  minVelocity: 0.001,
+  minVelocity: 0.05,
 
   /** Minimum spin velocity (radians per second) */
-  minSpinVelocity: 15,
+  minSpinVelocity: 20,
 
   /** Maximum spin velocity (radians per second) */
-  maxSpinVelocity: 30,
+  maxSpinVelocity: 35,
 
   /** Extra friction applied when velocity is very low for dramatic slowdown */
-  lowSpeedFriction: 0.97,
+  lowSpeedFriction: 0.975,
 
   /** Velocity threshold for applying low speed friction */
   lowSpeedThreshold: 2,
 
   /** Minimum number of full rotations before stopping */
-  minRotations: 3,
+  minRotations: 2,
 
   /** Extra friction to apply during final rotations for tension */
-  finalFriction: 0.99,
+  finalFriction: 0.992,
 
   /** Velocity threshold for "final" slowdown phase */
   finalPhaseThreshold: 4,
