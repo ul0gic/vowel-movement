@@ -53,6 +53,9 @@ export class MenuScene extends Phaser.Scene {
   private gradientOverlay!: Phaser.GameObjects.Graphics
   private gradientTween: gsap.core.Timeline | null = null
 
+  // Achievement tooltip
+  private achievementTooltip!: Phaser.GameObjects.Container
+
   constructor() {
     super({ key: SceneKeys.MENU })
   }
@@ -523,6 +526,75 @@ export class MenuScene extends Phaser.Scene {
       this.achievementsPanel.add(item)
       this.achievementItems.push(item)
     })
+
+    // Create tooltip (added last so it renders on top)
+    this.createAchievementTooltip()
+  }
+
+  /**
+   * Create achievement tooltip container
+   */
+  private createAchievementTooltip(): void {
+    this.achievementTooltip = this.add.container(0, 0)
+    this.achievementTooltip.setDepth(1000)
+    this.achievementTooltip.setAlpha(0)
+
+    // Tooltip background
+    const bg = this.add.graphics()
+    bg.fillStyle(hexToNumber(colors.surface), 0.95)
+    bg.fillRoundedRect(-120, -40, 240, 80, 12)
+    bg.lineStyle(2, hexToNumber(colors.accent), 0.8)
+    bg.strokeRoundedRect(-120, -40, 240, 80, 12)
+    this.achievementTooltip.add(bg)
+
+    // Tooltip title
+    const titleText = this.add
+      .text(0, -20, '', {
+        fontFamily: typography.fontFamily.display,
+        fontSize: `${typography.fontSize.md}px`,
+        color: colors.accent,
+        resolution: 2,
+      })
+      .setOrigin(0.5)
+      .setName('tooltipTitle')
+    this.achievementTooltip.add(titleText)
+
+    // Tooltip description
+    const descText = this.add
+      .text(0, 10, '', {
+        fontFamily: typography.fontFamily.body,
+        fontSize: `${typography.fontSize.sm}px`,
+        color: colors.textSecondary,
+        resolution: 2,
+        wordWrap: { width: 220 },
+      })
+      .setOrigin(0.5)
+      .setName('tooltipDesc')
+    this.achievementTooltip.add(descText)
+  }
+
+  /**
+   * Show achievement tooltip
+   */
+  private showAchievementTooltip(achievement: Achievement, worldX: number, worldY: number): void {
+    const titleText = this.achievementTooltip.getByName('tooltipTitle') as Phaser.GameObjects.Text
+    const descText = this.achievementTooltip.getByName('tooltipDesc') as Phaser.GameObjects.Text
+
+    if (titleText && descText) {
+      titleText.setText(achievement.name)
+      descText.setText(achievement.unlocked ? achievement.description : '???')
+    }
+
+    // Position tooltip above the icon
+    this.achievementTooltip.setPosition(worldX, worldY - 70)
+    animate(this.achievementTooltip, { alpha: 1, duration: 0.15 })
+  }
+
+  /**
+   * Hide achievement tooltip
+   */
+  private hideAchievementTooltip(): void {
+    animate(this.achievementTooltip, { alpha: 0, duration: 0.1 })
   }
 
   /**
@@ -559,14 +631,19 @@ export class MenuScene extends Phaser.Scene {
     container.setInteractive()
 
     container.on('pointerover', () => {
-      // Could show tooltip with achievement name/description
-      if (achievement.unlocked) {
-        animate(container, { scaleX: 1.1, scaleY: 1.1, duration: 0.1, ease: Easing.back })
-      }
+      // Show tooltip with achievement name/description
+      animate(container, { scaleX: 1.15, scaleY: 1.15, duration: 0.1, ease: Easing.back })
+
+      // Get world position for tooltip
+      const worldPos = this.achievementsPanel.getWorldTransformMatrix()
+      const worldX = worldPos.tx + container.x
+      const worldY = worldPos.ty + container.y
+      this.showAchievementTooltip(achievement, worldX, worldY)
     })
 
     container.on('pointerout', () => {
       animate(container, { scaleX: 1, scaleY: 1, duration: 0.1, ease: Easing.smoothOut })
+      this.hideAchievementTooltip()
     })
 
     return container

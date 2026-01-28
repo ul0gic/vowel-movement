@@ -514,9 +514,9 @@ export class GameScene extends Phaser.Scene {
    * Create status display showing current phase and wedge value
    */
   private createStatusDisplay(): void {
-    // Status text below wheel
+    // Status text below wheel (shows during spinning/guessing phases)
     this.statusText = this.add
-      .text(380, 860, 'SPIN THE WHEEL!', {
+      .text(380, 860, '', {
         fontFamily: typography.fontFamily.display,
         fontSize: `${typography.fontSize.xl}px`,
         color: colors.accent,
@@ -539,10 +539,10 @@ export class GameScene extends Phaser.Scene {
     // Spin button
     this.spinButton = new Button(this, {
       x: 380,
-      y: 980,
-      text: 'SPIN',
-      width: 160,
-      height: 56,
+      y: 940,
+      text: 'SPIN!',
+      width: 200,
+      height: 64,
       fillColor: colors.primary,
       strokeColor: colors.secondary,
       fontSize: typography.fontSize.xl,
@@ -571,8 +571,7 @@ export class GameScene extends Phaser.Scene {
 
     switch (phase) {
       case 'IDLE':
-        this.statusText.setText('SPIN THE WHEEL!')
-        this.statusText.setColor(colors.accent)
+        this.statusText.setText('')
         this.wedgeValueText.setText('')
         break
 
