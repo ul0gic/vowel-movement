@@ -534,11 +534,9 @@ export class GameScene extends Phaser.Scene {
    * Handle spin button click
    */
   private handleSpinButton(): void {
+    // Just call wheel.spin() - it emits WHEEL_SPIN event which triggers gameState.startSpin()
     if (this.gameState.canSpin()) {
-      const result = this.gameState.startSpin()
-      if (result.success) {
-        this.wheel.spin()
-      }
+      this.wheel.spin()
     }
   }
 
