@@ -609,10 +609,8 @@ export class GameScene extends Phaser.Scene {
     // Exit button (dev only)
     this.createDebugExitButton()
 
-    // Only add test controls in dev mode
-    if (import.meta.env.DEV) {
-      this.createDebugTestButtons()
-    }
+    // Add test controls
+    this.createDebugTestButtons()
   }
 
   /**
@@ -653,10 +651,6 @@ export class GameScene extends Phaser.Scene {
       this.endGame(score)
     })
 
-    // Only show in dev mode
-    if (!import.meta.env.DEV) {
-      this.exitButton.setVisible(false)
-    }
   }
 
   /**
