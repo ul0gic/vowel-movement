@@ -1,0 +1,16 @@
+name = "vowel-movement"
+main = "dist/index.html"
+compatibility_date = "2024-01-01"
+
+# Static assets configuration
+[assets]
+directory = "./dist"
+
+# Optional: Custom domain
+# routes = [
+#   { pattern = "vowelmovement.com/*", zone_name = "vowelmovement.com" }
+# ]
+
+# Environment variables (if needed)
+[vars]
+ENVIRONMENT = "production"
