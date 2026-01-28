@@ -3,13 +3,12 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Phaser](https://img.shields.io/badge/Phaser-3.90-8B5CF6?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTUtMTAtNXpNMiAxN2wxMCA1IDEwLTV2LTJsLTEwIDUtMTAtNXYyeiIvPjwvc3ZnPg==)](https://phaser.io/)
 [![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 > **The Irreverent Word Game** - A hilariously vulgar party game inspired by Wheel of Fortune
 
 <p align="center">
-  <img src="./screenshot.png" alt="Vowel Movement Gameplay" width="800">
+  <img src="./public/screenshot-gameplay.png" alt="Vowel Movement Gameplay" width="800">
 </p>
 
 ## 🎮 About The Game
@@ -151,23 +150,6 @@ vowel-movement/
 | `npm run format` | Format code with Prettier |
 | `npm run check` | Run all checks |
 
-## 🚀 Deployment
-
-### Cloudflare Workers
-
-This project is configured to deploy as a Cloudflare Worker with static assets.
-
-```bash
-# Install Wrangler CLI
-npm install -g wrangler
-
-# Login to Cloudflare
-wrangler login
-
-# Deploy
-wrangler deploy
-```
-
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to submit issues and pull requests.
@@ -182,8 +164,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Phaser 3](https://phaser.io/)
 - Fonts from [Google Fonts](https://fonts.google.com/)
 
----
-
-<p align="center">
-  Made with 💩 and TypeScript
-</p>
