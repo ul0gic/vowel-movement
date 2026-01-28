@@ -3,7 +3,10 @@
  *
  * Provides satisfying press and release animations for keyboard keys.
  */
+import { gsap } from 'gsap'
 import Phaser from 'phaser'
+
+import { Easing } from '../../utils/gsap'
 
 /**
  * Animation durations
@@ -116,6 +119,87 @@ export function animateKeyboardExit(
     y: keyboard.y + 50,
     duration: 200,
     ease: 'Cubic.easeIn',
+    onComplete,
+  })
+}
+
+/**
+ * Animate keyboard keys with GSAP staggered wave effect
+ * Keys animate in from bottom with scale and opacity
+ */
+export function animateKeyboardStaggerEntry(
+  keyContainers: Phaser.GameObjects.Container[],
+  onComplete?: () => void
+): gsap.core.Timeline {
+  // Store original positions and set initial state
+  const originalData = keyContainers.map((container) => ({
+    x: container.x,
+    y: container.y,
+    scaleX: container.scaleX,
+    scaleY: container.scaleY,
+    alpha: container.alpha,
+  }))
+
+  // Set initial hidden state - keys start below and invisible
+  keyContainers.forEach((container) => {
+    container.setAlpha(0)
+    container.setScale(0.5)
+    container.y += 30
+  })
+
+  // Create GSAP timeline for orchestrated animation
+  const tl = gsap.timeline({
+    onComplete,
+  })
+
+  // Animate all keys with stagger - wave effect from left to right
+  tl.to(keyContainers, {
+    alpha: 1,
+    scaleX: 1,
+    scaleY: 1,
+    y: (index) => originalData[index]?.y ?? keyContainers[index]?.y ?? 0,
+    duration: 0.35,
+    ease: Easing.back,
+    stagger: {
+      amount: 0.6, // Total stagger time spread across all keys
+      from: 'start', // Start from first key (leftmost)
+      grid: 'auto',
+      ease: 'power1.inOut',
+    },
+  })
+
+  return tl
+}
+
+/**
+ * Animate single row of keys with wave effect
+ */
+export function animateRowStaggerEntry(
+  keyContainers: Phaser.GameObjects.Container[],
+  delay: number = 0,
+  onComplete?: () => void
+): gsap.core.Tween {
+  // Store original Y and set initial state
+  const originalYs = keyContainers.map((container) => container.y)
+
+  keyContainers.forEach((container) => {
+    container.setAlpha(0)
+    container.setScale(0.6)
+    container.y += 25
+  })
+
+  return gsap.to(keyContainers, {
+    alpha: 1,
+    scaleX: 1,
+    scaleY: 1,
+    y: (index) => originalYs[index] ?? keyContainers[index]?.y ?? 0,
+    duration: 0.3,
+    ease: Easing.back,
+    delay,
+    stagger: {
+      amount: 0.25,
+      from: 'center', // Wave from center outward for visual interest
+    },
     onComplete,
   })
 }

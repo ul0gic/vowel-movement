@@ -1,8 +1,10 @@
 /**
  * Phrase board animations
  * Handles letter reveal effects, celebrations, and visual feedback
+ * Enhanced with GSAP for smoother, more dramatic animations
  */
 
+import { gsap } from 'gsap'
 import Phaser from 'phaser'
 
 import {
@@ -11,6 +13,7 @@ import {
 } from '../../data/constants'
 import { getAudioSystem } from '../../systems/AudioSystem'
 import { getParticleSystem } from '../../systems/ParticleSystem'
+import { Easing } from '../../utils/gsap'
 import type { LetterTile } from './LetterTile'
 import type { PhraseBoard } from './PhraseBoard'
 
@@ -45,98 +48,93 @@ const ANIM_CONFIG = {
 
 /**
  * Animate revealing a single letter tile with flip effect
- * Includes anticipation (squish) before the flip for better game feel
+ * Uses GSAP for smoother, more dramatic animation with better game feel
  */
 export function animateTileFlip(
-  scene: Phaser.Scene,
+  _scene: Phaser.Scene,
   tile: LetterTile,
   delay: number = 0,
   onComplete?: () => void
 ): void {
-  const flipDuration = ANIM_CONFIG.flipDuration / 2
+  const flipDuration = ANIM_CONFIG.flipDuration / 2000 // Convert to seconds for GSAP
 
-  // Phase 0: Anticipation (slight squish)
-  scene.tweens.add({
-    targets: tile,
+  // Create GSAP timeline for orchestrated flip animation
+  const tl = gsap.timeline({ delay: delay / 1000 })
+
+  // Phase 0: Anticipation (slight squish) - builds tension
+  tl.to(tile, {
     scaleY: ANIM_CONFIG.anticipationScale,
-    duration: ANIM_CONFIG.anticipationDuration,
-    delay,
-    ease: 'Quad.easeIn',
+    scaleX: 1.02,
+    duration: ANIM_CONFIG.anticipationDuration / 1000,
+    ease: 'power2.in',
+  })
+
+  // Phase 1: Flip closed (scale X to 0) with Y bounce back
+  tl.to(tile, {
+    scaleX: 0,
+    scaleY: 1.08,
+    duration: flipDuration,
+    ease: 'power3.in',
     onComplete: () => {
-      // Phase 1: Flip closed (scale X to 0) with Y bounce back
-      scene.tweens.add({
-        targets: tile,
-        scaleX: 0,
-        scaleY: 1.05,
-        duration: flipDuration,
-        ease: 'Cubic.easeIn',
-        onComplete: () => {
-          // Change tile appearance at midpoint
-          tile.redrawBackground(true)
-          tile.getLetterText().setVisible(true)
+      // Change tile appearance at midpoint
+      tile.redrawBackground(true)
+      tile.getLetterText().setVisible(true)
+    },
+  })
 
-          // Phase 2: Flip open (scale X back to 1) with bounce
-          scene.tweens.add({
-            targets: tile,
-            scaleX: 1,
-            scaleY: 1,
-            duration: flipDuration,
-            ease: 'Back.easeOut',
-            onComplete: () => {
-              // Mark as revealed
-              tile.reveal()
+  // Phase 2: Flip open (scale X back to 1) with elastic overshoot
+  tl.to(tile, {
+    scaleX: 1,
+    scaleY: 1,
+    duration: flipDuration * 1.2,
+    ease: Easing.elastic,
+    onComplete: () => {
+      // Mark as revealed
+      tile.reveal()
 
-              // Add scale punch
-              animateScalePunch(scene, tile)
+      // Add scale punch with GSAP
+      animateScalePunchGSAP(tile)
 
-              // Add glow effect
-              animateGlow(scene, tile)
+      // Add glow effect with GSAP
+      animateGlowGSAP(tile)
 
-              onComplete?.()
-            },
-          })
-        },
-      })
+      onComplete?.()
     },
   })
 }
 
 /**
- * Add a quick scale punch for impact with bounce
+ * Add a quick scale punch for impact using GSAP
  */
-function animateScalePunch(scene: Phaser.Scene, tile: LetterTile): void {
-  scene.tweens.add({
-    targets: tile,
+function animateScalePunchGSAP(tile: LetterTile): void {
+  gsap.to(tile, {
     scaleX: ANIM_CONFIG.scalePunch,
     scaleY: ANIM_CONFIG.scalePunch,
-    duration: 120,
-    ease: 'Elastic.easeOut',
+    duration: 0.15,
+    ease: Easing.elastic,
     yoyo: true,
+    repeat: 1,
   })
 }
 
 /**
- * Animate the glow effect on reveal
+ * Animate the glow effect using GSAP
  */
-function animateGlow(scene: Phaser.Scene, tile: LetterTile): void {
+function animateGlowGSAP(tile: LetterTile): void {
   const glow = tile.getGlow()
 
-  // Fade in glow
-  scene.tweens.add({
-    targets: glow,
-    alpha: 0.8,
-    duration: 100,
-    ease: 'Quad.easeOut',
-    onComplete: () => {
-      // Fade out glow
-      scene.tweens.add({
-        targets: glow,
-        alpha: 0,
-        duration: ANIM_CONFIG.glowDuration,
-        ease: 'Quad.easeIn',
-      })
-    },
-  })
+  // Fade in glow quickly, then fade out slowly
+  gsap.timeline()
+    .to(glow, {
+      alpha: 0.9,
+      duration: 0.1,
+      ease: 'power2.out',
+    })
+    .to(glow, {
+      alpha: 0,
+      duration: ANIM_CONFIG.glowDuration / 1000,
+      ease: 'power2.in',
+    })
 }
 
 /**

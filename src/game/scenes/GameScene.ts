@@ -25,7 +25,7 @@ import {
 } from '../data/constants'
 import type { GamePhase, GuessResult, Phrase, SolveResult, WedgeResult } from '../data/types'
 import { Keyboard, KeyboardEvents } from '../entities/Keyboard/Keyboard'
-import { animateKeyboardEntry } from '../entities/Keyboard/Keyboard.animations'
+// animateKeyboardEntry replaced by Keyboard.playEntranceAnimation()
 import { PhraseBoard } from '../entities/PhraseBoard/PhraseBoard'
 import { animateBoardEntry } from '../entities/PhraseBoard/PhraseBoard.animations'
 import { Wheel } from '../entities/Wheel/Wheel'
@@ -33,6 +33,7 @@ import { getAudioSystem } from '../systems/AudioSystem'
 import { GameStateEvents, GameStateSystem } from '../systems/GameStateSystem'
 import { InputEvents, InputSystem, type LetterInputEvent } from '../systems/InputSystem'
 import { getParticleSystem } from '../systems/ParticleSystem'
+import { getPostProcessing } from '../systems/PostProcessingSystem'
 import { getSaveSystem } from '../systems/SaveSystem'
 import { Button } from '../ui/components/Button'
 import { type DebugOverlay, installDebugOverlay } from '../utils/debug'
@@ -124,6 +125,9 @@ export class GameScene extends Phaser.Scene {
 
     // Set up particle system
     getParticleSystem().setScene(this)
+
+    // Set up post-processing effects (temporarily disabled for debugging)
+    // this.initializePostProcessing()
 
     this.setupEvents()
 
@@ -387,6 +391,9 @@ export class GameScene extends Phaser.Scene {
     // Show victory message
     this.showUIMessage('YOU WIN!', colors.success, 0) // 0 = don't auto-hide
 
+    // Trigger big win glow effect
+    getPostProcessing().bigWinGlow()
+
     // Celebration particle shower
     this.time.delayedCall(500, () => {
       getParticleSystem().celebrationShower(GAME_WIDTH, GAME_HEIGHT)
@@ -406,6 +413,21 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(3000, () => {
       this.endGame(data.finalScore)
     })
+  }
+
+  /**
+   * Initialize post-processing visual effects
+   */
+  // @ts-expect-error temporarily disabled for debugging
+  private initializePostProcessing(): void {
+    const postProcessing = getPostProcessing()
+    postProcessing.setScene(this)
+
+    // Create vignette overlay for focus
+    postProcessing.createVignette()
+
+    // Create glow overlay for big win effects
+    postProcessing.createGlowOverlay()
   }
 
   /**
@@ -484,8 +506,8 @@ export class GameScene extends Phaser.Scene {
       })
     })
 
-    // Animate keyboard entry
-    animateKeyboardEntry(this, this.keyboard)
+    // Animate keyboard entry with GSAP staggered wave effect (temporarily disabled)
+    // this.keyboard.playEntranceAnimation()
   }
 
   /**
@@ -799,10 +821,16 @@ export class GameScene extends Phaser.Scene {
     // Pass to game state system
     this.gameState.wheelStopped(result)
 
-    // Show wedge result message
+    // Show wedge result message and effects based on value
     switch (result.type) {
       case 'points':
         this.showUIMessage(`$${result.value}`, colors.wheelGold, 1500)
+        // Add glow pulse for high-value wedges
+        if (result.value >= 800) {
+          getPostProcessing().pulseGlow(colors.wheelGold, 0.25, 0.6)
+        } else if (result.value >= 500) {
+          getPostProcessing().pulseGlow(colors.success, 0.15, 0.4)
+        }
         break
       case 'bankrupt':
         // Handled by GameStateSystem event
@@ -811,7 +839,8 @@ export class GameScene extends Phaser.Scene {
         // Handled by GameStateSystem event
         break
       case 'freeSpin':
-        // Handled by GameStateSystem event
+        // Add celebratory glow for free spin
+        getPostProcessing().pulseGlow(colors.accent, 0.2, 0.5)
         break
     }
   }

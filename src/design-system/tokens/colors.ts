@@ -133,6 +133,146 @@ export const colors = {
 } as const
 
 /**
+ * Gradient definitions for modern styling
+ * Format: [startColor, endColor] for linear gradients
+ */
+export const gradients = {
+  // ============================================
+  // PRIMARY GRADIENTS
+  // ============================================
+
+  /** Primary button/accent gradient - magenta to purple */
+  primary: ['#FF00FF', '#9400D3'] as const,
+
+  /** Secondary gradient - cyan to blue */
+  secondary: ['#00FFFF', '#1E90FF'] as const,
+
+  /** Accent gradient - yellow to orange */
+  accent: ['#FFE600', '#FF8800'] as const,
+
+  /** Success gradient - green spectrum */
+  success: ['#00FF66', '#00CC44'] as const,
+
+  /** Danger gradient - red spectrum */
+  danger: ['#FF0040', '#CC0033'] as const,
+
+  // ============================================
+  // SURFACE GRADIENTS
+  // ============================================
+
+  /** Panel background - subtle dark gradient */
+  panel: ['#1A1A2E', '#12121F'] as const,
+
+  /** Card elevated - slightly lighter */
+  card: ['#252545', '#1A1A2E'] as const,
+
+  /** Glass effect base */
+  glass: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'] as const,
+
+  // ============================================
+  // SPECIAL EFFECT GRADIENTS
+  // ============================================
+
+  /** Gold shimmer for high scores */
+  gold: ['#FFD700', '#FFA500'] as const,
+
+  /** Silver shine */
+  silver: ['#E0E0E0', '#A0A0A0'] as const,
+
+  /** Rainbow celebration */
+  rainbow: ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#9400D3'] as const,
+
+  /** Neon pink glow */
+  neonPink: ['#FF69B4', '#FF1493'] as const,
+
+  /** Neon cyan glow */
+  neonCyan: ['#40E0D0', '#00FFFF'] as const,
+
+  /** Wheel rim shine */
+  wheelRim: ['#FFD700', '#FFC000', '#FFD700'] as const,
+} as const
+
+/**
+ * Shadow definitions for depth effects
+ */
+export const shadows = {
+  /** Subtle shadow for cards */
+  sm: {
+    color: 0x000000,
+    alpha: 0.3,
+    offsetX: 2,
+    offsetY: 2,
+    blur: 4,
+  },
+  /** Medium shadow for buttons */
+  md: {
+    color: 0x000000,
+    alpha: 0.4,
+    offsetX: 4,
+    offsetY: 4,
+    blur: 8,
+  },
+  /** Large shadow for modals */
+  lg: {
+    color: 0x000000,
+    alpha: 0.5,
+    offsetX: 8,
+    offsetY: 8,
+    blur: 16,
+  },
+  /** Glow shadow (for neon effect) */
+  glow: {
+    color: 0xFF00FF,
+    alpha: 0.6,
+    offsetX: 0,
+    offsetY: 0,
+    blur: 20,
+  },
+  /** Gold glow for premium elements */
+  goldGlow: {
+    color: 0xFFD700,
+    alpha: 0.5,
+    offsetX: 0,
+    offsetY: 0,
+    blur: 15,
+  },
+} as const
+
+/**
  * Type for color keys
  */
 export type ColorKey = keyof typeof colors
+
+/**
+ * Type for gradient keys
+ */
+export type GradientKey = keyof typeof gradients
+
+/**
+ * Helper to convert hex to Phaser color number
+ */
+export function hexToNumber(hex: string): number {
+  return parseInt(hex.replace('#', ''), 16)
+}
+
+/**
+ * Helper to get gradient colors as numbers
+ */
+export function getGradientColors(key: GradientKey): number[] {
+  const gradient = gradients[key]
+  return gradient.map((color) => {
+    // Handle rgba strings
+    if (color.startsWith('rgba')) {
+      // Extract RGB values from rgba string
+      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+      if (match?.[1] && match[2] && match[3]) {
+        const r = parseInt(match[1], 10)
+        const g = parseInt(match[2], 10)
+        const b = parseInt(match[3], 10)
+        return (r << 16) | (g << 8) | b
+      }
+      return 0xFFFFFF
+    }
+    return hexToNumber(color)
+  })
+}

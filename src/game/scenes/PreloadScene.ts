@@ -5,6 +5,7 @@
  * - Progress bar fills as assets load
  * - Displays loading percentage
  * - Transitions to MenuScene when complete
+ * - Pre-caches commonly used Iconify icons
  */
 import Phaser from 'phaser'
 
@@ -12,6 +13,7 @@ import { colors } from '../../design-system/tokens/colors'
 import { typography } from '../../design-system/tokens/typography'
 import { SceneKeys } from '../config/GameConfig'
 import { GAME_HEIGHT, GAME_WIDTH, SCENE_FADE_DURATION } from '../data/constants'
+import { getIconLoader, IconNames } from '../utils/icons'
 
 export class PreloadScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics
@@ -129,16 +131,70 @@ export class PreloadScene extends Phaser.Scene {
 
   /**
    * Transition to menu scene with fade effect
+   * Pre-cache icons before transitioning
    */
   create(): void {
-    // Brief delay before transitioning
-    this.time.delayedCall(200, () => {
-      // Fade out camera
-      this.cameras.main.fadeOut(SCENE_FADE_DURATION, 0, 0, 0)
+    // Pre-cache icons then transition
+    void this.preCacheIcons().then(() => {
+      // Brief delay before transitioning
+      this.time.delayedCall(200, () => {
+        // Fade out camera
+        this.cameras.main.fadeOut(SCENE_FADE_DURATION, 0, 0, 0)
 
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start(SceneKeys.MENU)
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.start(SceneKeys.MENU)
+        })
       })
     })
+  }
+
+  /**
+   * Pre-cache commonly used Iconify icons
+   */
+  private async preCacheIcons(): Promise<void> {
+    const iconLoader = getIconLoader()
+    iconLoader.setScene(this)
+
+    // Define commonly used icons with their colors and sizes
+    const iconsToCache = [
+      // Menu scene icons
+      { name: IconNames.trophy, size: 32, color: colors.wheelGold },
+      { name: IconNames.gamepad, size: 32, color: colors.textPrimary },
+      { name: IconNames.coins, size: 32, color: colors.wheelGold },
+      { name: IconNames.trendingUp, size: 32, color: colors.success },
+      { name: IconNames.flame, size: 32, color: colors.danger },
+      { name: IconNames.star, size: 32, color: colors.accent },
+      { name: IconNames.crown, size: 32, color: colors.wheelGold },
+      { name: IconNames.lock, size: 32, color: colors.textMuted },
+
+      // Achievement icons
+      { name: IconNames.check, size: 32, color: colors.success },
+      { name: IconNames.zap, size: 32, color: colors.accent },
+      { name: IconNames.skull, size: 32, color: colors.danger },
+      { name: IconNames.target, size: 32, color: colors.info },
+      { name: IconNames.gift, size: 32, color: colors.primary },
+      { name: IconNames.sparkles, size: 32, color: colors.wheelGold },
+
+      // UI icons
+      { name: IconNames.settings, size: 24, color: colors.textSecondary },
+      { name: IconNames.volume, size: 24, color: colors.textPrimary },
+      { name: IconNames.volumeMuted, size: 24, color: colors.textMuted },
+      { name: IconNames.play, size: 32, color: colors.textPrimary },
+      { name: IconNames.refresh, size: 24, color: colors.textPrimary },
+      { name: IconNames.home, size: 24, color: colors.textPrimary },
+    ]
+
+    try {
+      // Load all icons in parallel
+      await iconLoader.loadIcons(iconsToCache)
+
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log(`[PreloadScene] Pre-cached ${iconsToCache.length} icons`)
+      }
+    } catch (error) {
+      // Log error but don't block the game from starting
+      console.error('[PreloadScene] Error pre-caching icons:', error)
+    }
   }
 }

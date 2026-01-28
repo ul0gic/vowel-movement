@@ -13,12 +13,12 @@
  */
 import Phaser from 'phaser'
 
-import { colors } from '../../../design-system/tokens/colors'
+import { colors, hexToNumber, shadows } from '../../../design-system/tokens/colors'
 import { spacing } from '../../../design-system/tokens/spacing'
 import { typography } from '../../../design-system/tokens/typography'
 import { CONSONANTS, DEPTH_KEYBOARD, VOWEL_COST, VOWELS } from '../../data/constants'
 import { getAudioSystem } from '../../systems/AudioSystem'
-import { animateKeyPress, animateKeyReset } from './Keyboard.animations'
+import { animateKeyboardStaggerEntry, animateKeyPress, animateKeyReset } from './Keyboard.animations'
 
 /**
  * Events emitted by Keyboard
@@ -51,10 +51,11 @@ interface LetterKey {
 /**
  * Key dimensions - match puzzle tile size
  */
-const KEY_WIDTH = 60
-const KEY_HEIGHT = 72
-const KEY_GAP = 4
-const VOWEL_KEY_WIDTH = 60
+const KEY_WIDTH = 56
+const KEY_HEIGHT = 68
+const KEY_GAP = 6
+const VOWEL_KEY_WIDTH = 56
+const KEY_BORDER_RADIUS = 10
 
 /**
  * Keyboard class
@@ -231,7 +232,7 @@ export class Keyboard extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Draw key background based on state
+   * Draw key background based on state with modern styling
    */
   private drawKeyBackground(
     graphics: Phaser.GameObjects.Graphics,
@@ -244,37 +245,100 @@ export class Keyboard extends Phaser.GameObjects.Container {
     graphics.clear()
 
     // Determine colors based on state
-    let fillColor: string
-    let strokeColor: string
-    let alpha = 0.8
+    const baseColor = isVowel ? colors.wheelPurple : colors.wheelBlue
+    const accentColor = isVowel ? colors.accent : colors.secondary
 
-    if (isPressed) {
-      alpha = 1
-      fillColor = isVowel ? colors.accent : colors.secondary
-      strokeColor = isVowel ? colors.accent : colors.secondary
-    } else if (isHover) {
-      alpha = 0.95
-      fillColor = isVowel ? colors.wheelPurple : colors.wheelBlue
-      strokeColor = isVowel ? colors.accent : colors.secondary
-    } else {
-      fillColor = isVowel ? colors.wheelPurple : colors.wheelBlue
-      strokeColor = isVowel ? colors.accent : colors.secondary
+    // Shadow (offset rectangle)
+    if (!isPressed) {
+      graphics.fillStyle(shadows.sm.color, shadows.sm.alpha)
+      graphics.fillRoundedRect(
+        -width / 2 + 2,
+        -height / 2 + 3,
+        width,
+        height,
+        KEY_BORDER_RADIUS
+      )
     }
 
-    // Draw rounded rectangle
-    graphics.fillStyle(
-      Phaser.Display.Color.HexStringToColor(fillColor).color,
-      alpha
-    )
-    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, 6)
+    // Main background with gradient effect (darker at bottom)
+    const steps = 4
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1)
+      const segmentHeight = height / steps
+      const y = -height / 2 + i * segmentHeight + (isPressed ? 2 : 0)
 
-    // Draw border
-    graphics.lineStyle(
-      2,
-      Phaser.Display.Color.HexStringToColor(strokeColor).color,
-      isHover || isPressed ? 1 : 0.5
+      // Darken towards bottom for 3D effect
+      const brightness = isPressed ? 0.7 : (isHover ? 1.0 : 0.85) - t * 0.15
+      const color = this.adjustColorBrightness(hexToNumber(baseColor), brightness)
+      const alpha = isPressed ? 1 : (isHover ? 1 : 0.9)
+
+      graphics.fillStyle(color, alpha)
+
+      if (i === 0) {
+        graphics.fillRoundedRect(
+          -width / 2,
+          y,
+          width,
+          segmentHeight + 1,
+          { tl: KEY_BORDER_RADIUS, tr: KEY_BORDER_RADIUS, bl: 0, br: 0 }
+        )
+      } else if (i === steps - 1) {
+        graphics.fillRoundedRect(
+          -width / 2,
+          y,
+          width,
+          segmentHeight,
+          { tl: 0, tr: 0, bl: KEY_BORDER_RADIUS, br: KEY_BORDER_RADIUS }
+        )
+      } else {
+        graphics.fillRect(-width / 2, y, width, segmentHeight + 1)
+      }
+    }
+
+    // Top highlight
+    if (!isPressed) {
+      graphics.fillStyle(0xFFFFFF, isHover ? 0.25 : 0.15)
+      graphics.fillRoundedRect(
+        -width / 2 + 2,
+        -height / 2 + 2,
+        width - 4,
+        height * 0.35,
+        { tl: KEY_BORDER_RADIUS - 2, tr: KEY_BORDER_RADIUS - 2, bl: 0, br: 0 }
+      )
+    }
+
+    // Border
+    const borderAlpha = isHover || isPressed ? 0.9 : 0.5
+    graphics.lineStyle(2, hexToNumber(accentColor), borderAlpha)
+    graphics.strokeRoundedRect(
+      -width / 2,
+      -height / 2 + (isPressed ? 2 : 0),
+      width,
+      height,
+      KEY_BORDER_RADIUS
     )
-    graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, 6)
+
+    // Glow on hover
+    if (isHover && !isPressed) {
+      graphics.lineStyle(1, hexToNumber(accentColor), 0.3)
+      graphics.strokeRoundedRect(
+        -width / 2 - 2,
+        -height / 2 - 2,
+        width + 4,
+        height + 4,
+        KEY_BORDER_RADIUS + 2
+      )
+    }
+  }
+
+  /**
+   * Adjust color brightness
+   */
+  private adjustColorBrightness(color: number, factor: number): number {
+    const r = Math.min(255, Math.round(((color >> 16) & 0xFF) * factor))
+    const g = Math.min(255, Math.round(((color >> 8) & 0xFF) * factor))
+    const b = Math.min(255, Math.round((color & 0xFF) * factor))
+    return (r << 16) | (g << 8) | b
   }
 
   /**
@@ -287,20 +351,23 @@ export class Keyboard extends Phaser.GameObjects.Container {
   ): void {
     graphics.clear()
 
-    // Grayed out appearance
-    graphics.fillStyle(
-      Phaser.Display.Color.HexStringToColor(colors.surface).color,
-      0.5
+    // Grayed out appearance with subtle depth
+    graphics.fillStyle(hexToNumber(colors.surface), 0.4)
+    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, KEY_BORDER_RADIUS)
+
+    // Subtle inner shadow
+    graphics.fillStyle(0x000000, 0.1)
+    graphics.fillRoundedRect(
+      -width / 2 + 2,
+      -height / 2 + 2,
+      width - 4,
+      height / 2,
+      { tl: KEY_BORDER_RADIUS - 2, tr: KEY_BORDER_RADIUS - 2, bl: 0, br: 0 }
     )
-    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, 6)
 
     // Dim border
-    graphics.lineStyle(
-      1,
-      Phaser.Display.Color.HexStringToColor(colors.textSecondary).color,
-      0.3
-    )
-    graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, 6)
+    graphics.lineStyle(1, hexToNumber(colors.textMuted), 0.3)
+    graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, KEY_BORDER_RADIUS)
   }
 
   /**
@@ -435,6 +502,38 @@ export class Keyboard extends Phaser.GameObjects.Container {
       this.drawKeyBackground(key.background, width, KEY_HEIGHT, key.isVowel, false, false)
       animateKeyReset(this.scene, key.container)
     })
+  }
+
+  /**
+   * Get all key containers for animation purposes
+   * Returns keys in visual order (top-left to bottom-right)
+   */
+  public getKeyContainers(): Phaser.GameObjects.Container[] {
+    const containers: Phaser.GameObjects.Container[] = []
+    // Get consonant row 1 (B-M)
+    CONSONANTS.slice(0, 10).forEach((letter) => {
+      const key = this.keys.get(letter)
+      if (key) containers.push(key.container)
+    })
+    // Get consonant row 2 (N-Z)
+    CONSONANTS.slice(10).forEach((letter) => {
+      const key = this.keys.get(letter)
+      if (key) containers.push(key.container)
+    })
+    // Get vowel row
+    VOWELS.forEach((letter) => {
+      const key = this.keys.get(letter)
+      if (key) containers.push(key.container)
+    })
+    return containers
+  }
+
+  /**
+   * Play the staggered entrance animation for all keys
+   */
+  public playEntranceAnimation(onComplete?: () => void): void {
+    const keyContainers = this.getKeyContainers()
+    animateKeyboardStaggerEntry(keyContainers, onComplete)
   }
 
   /**

@@ -39,52 +39,52 @@ interface ParticleConfig {
 }
 
 /**
- * Default configurations for different effect types
+ * Default configurations for different effect types - Enhanced for modern look
  */
 const PARTICLE_CONFIGS = {
   confetti: {
-    colors: [colors.primary, colors.secondary, colors.accent, colors.success, colors.wheelGold, colors.wheelPink],
-    count: 80,
-    gravity: 400,
-    lifetimeMax: 2000,
-    lifetimeMin: 1500,
-    sizeMax: 12,
-    sizeMin: 6,
-    speedMax: 600,
-    speedMin: 300,
+    colors: [colors.primary, colors.secondary, colors.accent, colors.success, colors.wheelGold, colors.wheelPink, colors.glowCyan, colors.glowYellow],
+    count: 100,
+    gravity: 350,
+    lifetimeMax: 2500,
+    lifetimeMin: 1800,
+    sizeMax: 14,
+    sizeMin: 5,
+    speedMax: 650,
+    speedMin: 280,
   },
   sparkle: {
-    colors: [colors.accent, colors.wheelGold, colors.glowWhite, colors.glowYellow],
-    count: 30,
-    gravity: 50,
-    lifetimeMax: 800,
-    lifetimeMin: 400,
-    sizeMax: 8,
+    colors: [colors.accent, colors.wheelGold, colors.glowWhite, colors.glowYellow, colors.glowCyan],
+    count: 40,
+    gravity: 30,
+    lifetimeMax: 1000,
+    lifetimeMin: 500,
+    sizeMax: 10,
     sizeMin: 3,
-    speedMax: 200,
-    speedMin: 50,
+    speedMax: 180,
+    speedMin: 40,
   },
   explosion: {
-    colors: [colors.danger, colors.wheelRed, colors.warning, colors.wheelOrange],
-    count: 40,
-    gravity: 200,
-    lifetimeMax: 1000,
-    lifetimeMin: 600,
-    sizeMax: 16,
-    sizeMin: 8,
-    speedMax: 500,
-    speedMin: 200,
+    colors: [colors.danger, colors.wheelRed, colors.warning, colors.wheelOrange, colors.primary],
+    count: 50,
+    gravity: 180,
+    lifetimeMax: 1200,
+    lifetimeMin: 700,
+    sizeMax: 18,
+    sizeMin: 6,
+    speedMax: 550,
+    speedMin: 180,
   },
   scorePopup: {
-    colors: [colors.success, colors.accent, colors.wheelGold],
-    count: 15,
-    gravity: -100,
-    lifetimeMax: 1200,
-    lifetimeMin: 800,
-    sizeMax: 6,
+    colors: [colors.success, colors.accent, colors.wheelGold, colors.glowYellow],
+    count: 20,
+    gravity: -120,
+    lifetimeMax: 1400,
+    lifetimeMin: 900,
+    sizeMax: 8,
     sizeMin: 3,
-    speedMax: 150,
-    speedMin: 50,
+    speedMax: 170,
+    speedMin: 40,
   },
 } as const satisfies Record<string, ParticleConfig>
 
@@ -200,16 +200,33 @@ export class ParticleSystem {
       // Random size
       const size = Phaser.Math.Between(config.sizeMin, config.sizeMax)
 
-      // Draw particle (random shape for variety)
+      // Draw particle (multiple shapes for visual variety)
       particle.fillStyle(color, 1)
-      if (Math.random() > 0.5) {
-        // Circle
+      const shapeChoice = Math.random()
+
+      if (shapeChoice > 0.7) {
+        // Circle with glow effect
+        particle.fillStyle(color, 0.4)
+        particle.fillCircle(0, 0, size * 0.8)
+        particle.fillStyle(color, 1)
         particle.fillCircle(0, 0, size / 2)
-      } else {
-        // Square/Rectangle
+      } else if (shapeChoice > 0.4) {
+        // Rectangle (confetti strip)
         const width = size
-        const height = size * Phaser.Math.FloatBetween(0.5, 1.5)
+        const height = size * Phaser.Math.FloatBetween(0.3, 0.6)
         particle.fillRect(-width / 2, -height / 2, width, height)
+      } else if (shapeChoice > 0.2) {
+        // Diamond
+        particle.beginPath()
+        particle.moveTo(0, -size / 2)
+        particle.lineTo(size / 3, 0)
+        particle.lineTo(0, size / 2)
+        particle.lineTo(-size / 3, 0)
+        particle.closePath()
+        particle.fillPath()
+      } else {
+        // Star burst (small)
+        this.drawStar(particle, 0, 0, 4, size / 2, size / 4)
       }
 
       // Position at origin

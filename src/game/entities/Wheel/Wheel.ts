@@ -3,9 +3,10 @@
  * The spinning wheel with wedges, physics, and landing detection
  */
 
+import { gsap } from 'gsap'
 import Phaser from 'phaser'
 
-import { colors } from '../../../design-system/tokens/colors'
+import { colors, hexToNumber } from '../../../design-system/tokens/colors'
 import { typography } from '../../../design-system/tokens/typography'
 import { DEPTH_WHEEL } from '../../data/constants'
 import type { WedgeResult, WheelState } from '../../data/types'
@@ -41,22 +42,28 @@ const WHEEL_CONFIG = {
   radius: 320,
 
   /** Inner radius for hub */
-  hubRadius: 50,
+  hubRadius: 55,
 
   /** Outer rim width */
-  rimWidth: 12,
+  rimWidth: 16,
 
   /** Pointer size */
-  pointerSize: 32,
+  pointerSize: 36,
 
   /** Border between segments */
-  segmentBorderWidth: 3,
+  segmentBorderWidth: 2,
 
   /** Font size for labels */
   labelFontSize: 18,
 
   /** Label distance from center (percentage of radius) */
   labelRadiusPercent: 0.68,
+
+  /** Enable gradient segments */
+  useGradients: true,
+
+  /** Number of gradient steps per segment */
+  gradientSteps: 5,
 } as const
 
 /**
@@ -94,6 +101,18 @@ export class Wheel extends Phaser.GameObjects.Container {
   /** Maximum spin duration in ms before forcing stop */
   private readonly MAX_SPIN_DURATION = 15000
 
+  /** Whether GSAP is handling the final deceleration */
+  private gsapFinalPhase: boolean = false
+
+  /** GSAP tween for final spin */
+  private gsapSpinTween: gsap.core.Tween | null = null
+
+  /** Velocity threshold to switch to GSAP final deceleration */
+  private readonly GSAP_THRESHOLD = 3.5
+
+  /** Animation state object for GSAP */
+  private gsapAnimState = { rotation: 0 }
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y)
 
@@ -129,10 +148,10 @@ export class Wheel extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Draws all wheel segments
+   * Draws all wheel segments with gradient effect
    */
   private drawSegments(): void {
-    const { radius, segmentBorderWidth } = WHEEL_CONFIG
+    const { radius, segmentBorderWidth, gradientSteps } = WHEEL_CONFIG
 
     this.wheelGraphics.clear()
 
@@ -143,23 +162,79 @@ export class Wheel extends Phaser.GameObjects.Container {
       const startAngle = i * SEGMENT_ANGLE - Math.PI / 2 - SEGMENT_ANGLE / 2
       const endAngle = startAngle + SEGMENT_ANGLE
 
-      // Draw segment fill
-      this.wheelGraphics.fillStyle(
-        Phaser.Display.Color.HexStringToColor(wedge.color).color,
-        1
-      )
-      this.wheelGraphics.slice(0, 0, radius, startAngle, endAngle, false)
-      this.wheelGraphics.fillPath()
+      // Draw gradient segment using multiple concentric arcs
+      this.drawGradientSegment(startAngle, endAngle, wedge.color, radius, gradientSteps)
 
       // Draw segment border
       this.wheelGraphics.lineStyle(
         segmentBorderWidth,
-        Phaser.Display.Color.HexStringToColor(colors.surface).color,
-        1
+        hexToNumber(colors.surface),
+        0.8
       )
-      this.wheelGraphics.slice(0, 0, radius, startAngle, endAngle, false)
+      this.wheelGraphics.beginPath()
+      this.wheelGraphics.moveTo(0, 0)
+      this.wheelGraphics.lineTo(
+        Math.cos(startAngle) * radius,
+        Math.sin(startAngle) * radius
+      )
       this.wheelGraphics.strokePath()
     }
+
+    // Draw outer edge circle
+    this.wheelGraphics.lineStyle(segmentBorderWidth, hexToNumber(colors.surface), 0.5)
+    this.wheelGraphics.strokeCircle(0, 0, radius)
+  }
+
+  /**
+   * Draw a single segment with radial gradient effect
+   */
+  private drawGradientSegment(
+    startAngle: number,
+    endAngle: number,
+    baseColor: string,
+    radius: number,
+    steps: number
+  ): void {
+    const baseColorNum = hexToNumber(baseColor)
+    const innerRadius = WHEEL_CONFIG.hubRadius + 10
+
+    for (let s = 0; s < steps; s++) {
+      const t = s / (steps - 1)
+      const outerR = innerRadius + (radius - innerRadius) * ((s + 1) / steps)
+      const innerR = innerRadius + (radius - innerRadius) * (s / steps)
+
+      // Create gradient by darkening towards center
+      const brightness = 0.7 + t * 0.3
+      const color = this.adjustBrightness(baseColorNum, brightness)
+
+      this.wheelGraphics.fillStyle(color, 1)
+
+      // Draw arc segment
+      this.wheelGraphics.beginPath()
+      this.wheelGraphics.arc(0, 0, outerR, startAngle, endAngle, false)
+      this.wheelGraphics.arc(0, 0, innerR, endAngle, startAngle, true)
+      this.wheelGraphics.closePath()
+      this.wheelGraphics.fillPath()
+    }
+
+    // Add highlight at top of segment
+    const highlightR = innerRadius + (radius - innerRadius) * 0.15
+    this.wheelGraphics.fillStyle(0xFFFFFF, 0.15)
+    this.wheelGraphics.beginPath()
+    this.wheelGraphics.arc(0, 0, highlightR, startAngle, endAngle, false)
+    this.wheelGraphics.arc(0, 0, innerRadius, endAngle, startAngle, true)
+    this.wheelGraphics.closePath()
+    this.wheelGraphics.fillPath()
+  }
+
+  /**
+   * Adjust brightness of a color
+   */
+  private adjustBrightness(color: number, factor: number): number {
+    const r = Math.min(255, Math.round(((color >> 16) & 0xFF) * factor))
+    const g = Math.min(255, Math.round(((color >> 8) & 0xFF) * factor))
+    const b = Math.min(255, Math.round((color & 0xFF) * factor))
+    return (r << 16) | (g << 8) | b
   }
 
   /**
@@ -202,55 +277,92 @@ export class Wheel extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Creates the center hub
+   * Creates the center hub with 3D effect
    */
   private createHub(): void {
     const { hubRadius } = WHEEL_CONFIG
     const hub = this.scene.add.graphics()
 
-    // Outer hub ring
-    hub.fillStyle(
-      Phaser.Display.Color.HexStringToColor(colors.surface).color,
-      1
-    )
-    hub.fillCircle(0, 0, hubRadius + 5)
+    // Outer shadow
+    hub.fillStyle(0x000000, 0.4)
+    hub.fillCircle(3, 3, hubRadius + 8)
 
-    // Inner hub
-    hub.fillStyle(
-      Phaser.Display.Color.HexStringToColor(colors.wheelGold).color,
-      1
-    )
-    hub.fillCircle(0, 0, hubRadius)
+    // Outer hub ring (dark)
+    hub.fillStyle(hexToNumber(colors.surface), 1)
+    hub.fillCircle(0, 0, hubRadius + 8)
 
-    // Hub highlight
-    hub.fillStyle(0xffffff, 0.3)
-    hub.fillCircle(-5, -5, hubRadius * 0.5)
+    // Gold rim
+    hub.lineStyle(4, hexToNumber(colors.wheelGold), 1)
+    hub.strokeCircle(0, 0, hubRadius + 4)
+
+    // Main hub gradient (gold)
+    const steps = 6
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1)
+      const r = hubRadius * (1 - t * 0.15)
+      const brightness = 0.8 + t * 0.2
+      const color = this.adjustBrightness(hexToNumber(colors.wheelGold), brightness)
+      hub.fillStyle(color, 1)
+      hub.fillCircle(0, 0, r)
+    }
+
+    // Central highlight
+    hub.fillStyle(0xFFFFFF, 0.4)
+    hub.fillCircle(-hubRadius * 0.2, -hubRadius * 0.2, hubRadius * 0.35)
+
+    // Inner dark ring
+    hub.lineStyle(2, hexToNumber(colors.surface), 0.5)
+    hub.strokeCircle(0, 0, hubRadius * 0.6)
 
     this.add(hub)
   }
 
   /**
-   * Creates the outer rim
+   * Creates the outer rim with 3D shine effect
    */
   private createRim(): void {
     const { radius, rimWidth } = WHEEL_CONFIG
     const rim = this.scene.add.graphics()
 
-    // Outer ring
-    rim.lineStyle(
-      rimWidth,
-      Phaser.Display.Color.HexStringToColor(colors.wheelGold).color,
-      1
-    )
+    // Outer shadow
+    rim.lineStyle(rimWidth + 4, 0x000000, 0.3)
+    rim.strokeCircle(0, 0, radius + rimWidth / 2 + 2)
+
+    // Main gold rim - darker base
+    rim.lineStyle(rimWidth, this.adjustBrightness(hexToNumber(colors.wheelGold), 0.7), 1)
     rim.strokeCircle(0, 0, radius + rimWidth / 2)
 
-    // Inner accent ring
-    rim.lineStyle(
-      2,
-      Phaser.Display.Color.HexStringToColor(colors.surface).color,
-      0.5
-    )
-    rim.strokeCircle(0, 0, radius - 1)
+    // Lighter inner edge
+    rim.lineStyle(rimWidth * 0.4, hexToNumber(colors.wheelGold), 1)
+    rim.strokeCircle(0, 0, radius + rimWidth * 0.3)
+
+    // Highlight at top
+    rim.lineStyle(rimWidth * 0.2, 0xFFFFFF, 0.4)
+    rim.strokeCircle(0, 0, radius + rimWidth * 0.2)
+
+    // Inner dark edge
+    rim.lineStyle(3, hexToNumber(colors.surface), 0.8)
+    rim.strokeCircle(0, 0, radius)
+
+    // Outer dark edge
+    rim.lineStyle(2, hexToNumber(colors.surface), 0.6)
+    rim.strokeCircle(0, 0, radius + rimWidth)
+
+    // Add tick marks on rim
+    const tickCount = WHEEL_SEGMENT_COUNT
+    const tickLength = 8
+    rim.lineStyle(2, hexToNumber(colors.surface), 0.5)
+
+    for (let i = 0; i < tickCount; i++) {
+      const angle = (i / tickCount) * Math.PI * 2 - Math.PI / 2
+      const innerR = radius + rimWidth - tickLength
+      const outerR = radius + rimWidth
+
+      rim.beginPath()
+      rim.moveTo(Math.cos(angle) * innerR, Math.sin(angle) * innerR)
+      rim.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR)
+      rim.strokePath()
+    }
 
     this.add(rim)
   }
@@ -333,6 +445,14 @@ export class Wheel extends Phaser.GameObjects.Container {
     // Reset tick tracker
     this.tickTracker = createTickTracker()
 
+    // Reset GSAP state
+    this.gsapFinalPhase = false
+    if (this.gsapSpinTween) {
+      this.gsapSpinTween.kill()
+      this.gsapSpinTween = null
+    }
+    this.gsapAnimState.rotation = this.physicsState.rotation
+
     // Record start time for timeout fallback
     this.spinStartTime = Date.now()
 
@@ -359,6 +479,12 @@ export class Wheel extends Phaser.GameObjects.Container {
    */
   public update(_time: number, delta: number): void {
     if (!this.physicsState.isSpinning) {
+      return
+    }
+
+    // If GSAP is handling the final phase, just update tick tracking
+    if (this.gsapFinalPhase) {
+      this.updateGsapPhase()
       return
     }
 
@@ -394,6 +520,16 @@ export class Wheel extends Phaser.GameObjects.Container {
       getAudioSystem().playWheelTick(speedFactor)
     }
 
+    // Check if we should switch to GSAP for final dramatic deceleration
+    if (
+      this.physicsState.angularVelocity < this.GSAP_THRESHOLD &&
+      this.physicsState.angularVelocity > 0 &&
+      this.physicsState.rotationsCompleted >= 2
+    ) {
+      this.startGsapFinalPhase()
+      return
+    }
+
     // Check if wheel just stopped (physics update can stop the wheel)
     // Also check for timeout fallback to prevent getting stuck
     const timedOut = Date.now() - this.spinStartTime > this.MAX_SPIN_DURATION
@@ -406,11 +542,97 @@ export class Wheel extends Phaser.GameObjects.Container {
           isSpinning: false,
         }
         if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
+           
           console.warn('[Wheel] Spin timed out, forcing stop')
         }
       }
       this.onSpinComplete()
+    }
+  }
+
+  /**
+   * Start GSAP-based final deceleration for dramatic effect
+   */
+  private startGsapFinalPhase(): void {
+    this.gsapFinalPhase = true
+
+    // Calculate remaining rotation - add 0.5-1.5 extra rotations for suspense
+    const currentRotation = this.physicsState.rotation
+    const extraRotation = (0.5 + Math.random()) * Math.PI * 2
+    const finalRotation = currentRotation + extraRotation
+
+    // Set up GSAP animation state
+    this.gsapAnimState.rotation = currentRotation
+
+    // Determine duration based on remaining rotation (slower = more dramatic)
+    const duration = 2 + (extraRotation / (Math.PI * 2)) * 1.5
+
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log(`[Wheel] Starting GSAP final phase, duration: ${duration.toFixed(2)}s`)
+    }
+
+    // Create GSAP tween with dramatic easing
+    this.gsapSpinTween = gsap.to(this.gsapAnimState, {
+      rotation: finalRotation,
+      duration,
+      ease: 'power3.out', // Strong deceleration curve
+      onUpdate: () => {
+        // Apply rotation to wheel
+        this.wheelGraphics.setRotation(this.gsapAnimState.rotation)
+        this.labelsContainer.setRotation(this.gsapAnimState.rotation)
+
+        // Update physics state for consistency
+        this.physicsState = {
+          ...this.physicsState,
+          rotation: this.gsapAnimState.rotation,
+        }
+      },
+      onComplete: () => {
+        // Update final physics state
+        this.physicsState = {
+          ...this.physicsState,
+          angularVelocity: 0,
+          isSpinning: false,
+          rotation: finalRotation,
+        }
+        this.gsapFinalPhase = false
+        this.gsapSpinTween = null
+        this.onSpinComplete()
+      },
+    })
+  }
+
+  /**
+   * Update during GSAP final phase - handle tick sounds
+   */
+  private updateGsapPhase(): void {
+    // Check for tick (segment boundary crossing)
+    const currentSegment = calculateLandingSegment(
+      this.gsapAnimState.rotation,
+      WHEEL_SEGMENT_COUNT
+    )
+
+    const tickResult = checkTick(this.tickTracker, currentSegment)
+    this.tickTracker = tickResult.tracker
+
+    if (tickResult.shouldTick) {
+      // Calculate approximate velocity for tick intensity
+      // During GSAP phase, velocity decreases over time
+      const tweenProgress = this.gsapSpinTween?.progress() ?? 1
+      const velocityApprox = this.GSAP_THRESHOLD * (1 - tweenProgress * 0.9)
+
+      // Animate pointer tick with decreasing intensity
+      animatePointerTick(
+        this.scene,
+        this.pointer,
+        velocityApprox
+      )
+
+      // Play tick sound with pitch based on approximate speed
+      const maxVelocity = 15
+      const speedFactor = Math.min(velocityApprox / maxVelocity, 1)
+      getAudioSystem().playWheelTick(speedFactor)
     }
   }
 
@@ -504,6 +726,12 @@ export class Wheel extends Phaser.GameObjects.Container {
    * Clean up when wheel is destroyed
    */
   public destroy(fromScene?: boolean): void {
+    // Kill any running GSAP tween
+    if (this.gsapSpinTween) {
+      this.gsapSpinTween.kill()
+      this.gsapSpinTween = null
+    }
+
     // Remove pointer from scene
     this.pointer.destroy()
 

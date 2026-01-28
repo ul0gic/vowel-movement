@@ -1,11 +1,12 @@
 /**
  * Individual letter tile for the phrase board
  * Represents a single letter box that can be revealed with animation
+ * Features modern styling with depth, shadows, and gradients
  */
 
 import Phaser from 'phaser'
 
-import { colors } from '../../../design-system/tokens/colors'
+import { colors, hexToNumber, shadows } from '../../../design-system/tokens/colors'
 import { typography } from '../../../design-system/tokens/typography'
 import { TILE_HEIGHT, TILE_WIDTH } from '../../data/constants'
 
@@ -15,10 +16,10 @@ import { TILE_HEIGHT, TILE_WIDTH } from '../../data/constants'
 export type TileType = 'letter' | 'punctuation' | 'space'
 
 /**
- * Configuration for tile appearance
+ * Configuration for tile appearance - Modern design with depth and shadows
  */
 const TILE_CONFIG = {
-  /** Background color for unrevealed letter tiles */
+  /** Background color for unrevealed letter tiles (base) */
   backgroundColor: colors.tileHidden,
 
   /** Border color for tiles */
@@ -28,9 +29,9 @@ const TILE_CONFIG = {
   borderWidth: 3,
 
   /** Corner radius for rounded tiles */
-  cornerRadius: 8,
+  cornerRadius: 12,
 
-  /** Color when tile is revealed */
+  /** Color when tile is revealed (base) */
   revealedColor: colors.tileRevealed,
 
   /** Glow color on reveal */
@@ -41,6 +42,15 @@ const TILE_CONFIG = {
 
   /** Punctuation color (always visible) */
   punctuationColor: colors.accent,
+
+  /** Shadow offset for 3D depth effect */
+  shadowOffset: 4,
+
+  /** Inner highlight opacity */
+  highlightOpacity: 0.25,
+
+  /** Gradient steps for smooth color transitions */
+  gradientSteps: 4,
 } as const
 
 /**
@@ -122,31 +132,39 @@ export class LetterTile extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Create the glow effect for reveal animation
+   * Create the glow effect for reveal animation - Modern multi-layer glow
    */
   private createGlow(): void {
     this.glow = this.scene.add.graphics()
 
-    // Draw glow rectangle slightly larger than tile
-    const padding = 8
-    this.glow.fillStyle(
-      Phaser.Display.Color.HexStringToColor(TILE_CONFIG.glowColor).color,
-      0.5
-    )
-    this.glow.fillRoundedRect(
-      -TILE_WIDTH / 2 - padding,
-      -TILE_HEIGHT / 2 - padding,
-      TILE_WIDTH + padding * 2,
-      TILE_HEIGHT + padding * 2,
-      TILE_CONFIG.cornerRadius + 4
-    )
+    const { cornerRadius } = TILE_CONFIG
+    const glowColor = hexToNumber(TILE_CONFIG.glowColor)
+
+    // Multi-layer glow for smoother effect
+    const glowLayers = [
+      { padding: 16, alpha: 0.15 },
+      { padding: 12, alpha: 0.25 },
+      { padding: 8, alpha: 0.35 },
+      { padding: 4, alpha: 0.5 },
+    ]
+
+    glowLayers.forEach(({ padding, alpha }) => {
+      this.glow.fillStyle(glowColor, alpha)
+      this.glow.fillRoundedRect(
+        -TILE_WIDTH / 2 - padding,
+        -TILE_HEIGHT / 2 - padding,
+        TILE_WIDTH + padding * 2,
+        TILE_HEIGHT + padding * 2,
+        cornerRadius + padding / 2
+      )
+    })
 
     this.glow.setAlpha(0)
     this.add(this.glow)
   }
 
   /**
-   * Create the background rectangle
+   * Create the background rectangle with modern 3D styling
    */
   private createBackground(): void {
     this.background = this.scene.add.graphics()
@@ -157,39 +175,127 @@ export class LetterTile extends Phaser.GameObjects.Container {
       return
     }
 
-    // Draw the tile background
-    const fillColor =
-      this.tileType === 'letter' && !this._isRevealed
-        ? TILE_CONFIG.backgroundColor
-        : TILE_CONFIG.revealedColor
+    // Draw the tile background with modern styling
+    const isRevealed = this.tileType !== 'letter' || this._isRevealed
+    this.drawModernTileBackground(isRevealed)
 
-    this.background.fillStyle(
-      Phaser.Display.Color.HexStringToColor(fillColor).color,
-      1
-    )
+    this.add(this.background)
+  }
+
+  /**
+   * Draw modern tile background with gradients, shadows, and depth
+   */
+  private drawModernTileBackground(revealed: boolean): void {
+    this.background.clear()
+
+    const baseColor = revealed ? TILE_CONFIG.revealedColor : TILE_CONFIG.backgroundColor
+    const baseColorNum = hexToNumber(baseColor)
+    const { cornerRadius, shadowOffset, highlightOpacity, gradientSteps } = TILE_CONFIG
+
+    // 1. Draw drop shadow for 3D depth
+    this.background.fillStyle(shadows.md.color, shadows.md.alpha)
     this.background.fillRoundedRect(
-      -TILE_WIDTH / 2,
-      -TILE_HEIGHT / 2,
+      -TILE_WIDTH / 2 + shadowOffset,
+      -TILE_HEIGHT / 2 + shadowOffset,
       TILE_WIDTH,
       TILE_HEIGHT,
-      TILE_CONFIG.cornerRadius
+      cornerRadius
     )
 
-    // Draw border
-    this.background.lineStyle(
-      TILE_CONFIG.borderWidth,
-      Phaser.Display.Color.HexStringToColor(TILE_CONFIG.borderColor).color,
-      1
+    // 2. Draw gradient background (darker at bottom for 3D effect)
+    for (let i = 0; i < gradientSteps; i++) {
+      const t = i / (gradientSteps - 1)
+      const segmentHeight = TILE_HEIGHT / gradientSteps
+      const y = -TILE_HEIGHT / 2 + i * segmentHeight
+
+      // Darken color towards bottom
+      const brightness = revealed ? (1 - t * 0.1) : (0.9 - t * 0.2)
+      const color = this.adjustColorBrightness(baseColorNum, brightness)
+
+      this.background.fillStyle(color, 1)
+
+      if (i === 0) {
+        // Top segment with rounded corners
+        this.background.fillRoundedRect(
+          -TILE_WIDTH / 2,
+          y,
+          TILE_WIDTH,
+          segmentHeight + 1,
+          { tl: cornerRadius, tr: cornerRadius, bl: 0, br: 0 }
+        )
+      } else if (i === gradientSteps - 1) {
+        // Bottom segment with rounded corners
+        this.background.fillRoundedRect(
+          -TILE_WIDTH / 2,
+          y,
+          TILE_WIDTH,
+          segmentHeight,
+          { tl: 0, tr: 0, bl: cornerRadius, br: cornerRadius }
+        )
+      } else {
+        // Middle segments
+        this.background.fillRect(-TILE_WIDTH / 2, y, TILE_WIDTH, segmentHeight + 1)
+      }
+    }
+
+    // 3. Draw top highlight (glass effect)
+    this.background.fillStyle(0xFFFFFF, highlightOpacity)
+    this.background.fillRoundedRect(
+      -TILE_WIDTH / 2 + 3,
+      -TILE_HEIGHT / 2 + 3,
+      TILE_WIDTH - 6,
+      TILE_HEIGHT * 0.35,
+      { tl: cornerRadius - 3, tr: cornerRadius - 3, bl: 0, br: 0 }
     )
+
+    // 4. Draw inner shadow at bottom (more depth)
+    if (!revealed) {
+      this.background.fillStyle(0x000000, 0.2)
+      this.background.fillRoundedRect(
+        -TILE_WIDTH / 2 + 2,
+        TILE_HEIGHT / 2 - 12,
+        TILE_WIDTH - 4,
+        10,
+        { tl: 0, tr: 0, bl: cornerRadius - 2, br: cornerRadius - 2 }
+      )
+    }
+
+    // 5. Draw border with gradient effect
+    const borderColor = revealed
+      ? hexToNumber(colors.tileBorder)
+      : this.adjustColorBrightness(hexToNumber(colors.wheelPurple), 1.3)
+    const borderAlpha = revealed ? 1 : 0.8
+
+    this.background.lineStyle(TILE_CONFIG.borderWidth, borderColor, borderAlpha)
     this.background.strokeRoundedRect(
       -TILE_WIDTH / 2,
       -TILE_HEIGHT / 2,
       TILE_WIDTH,
       TILE_HEIGHT,
-      TILE_CONFIG.cornerRadius
+      cornerRadius
     )
 
-    this.add(this.background)
+    // 6. Add subtle outer glow for unrevealed tiles
+    if (!revealed) {
+      this.background.lineStyle(1, hexToNumber(colors.primary), 0.3)
+      this.background.strokeRoundedRect(
+        -TILE_WIDTH / 2 - 1,
+        -TILE_HEIGHT / 2 - 1,
+        TILE_WIDTH + 2,
+        TILE_HEIGHT + 2,
+        cornerRadius + 1
+      )
+    }
+  }
+
+  /**
+   * Adjust brightness of a color
+   */
+  private adjustColorBrightness(color: number, factor: number): number {
+    const r = Math.min(255, Math.round(((color >> 16) & 0xFF) * factor))
+    const g = Math.min(255, Math.round(((color >> 8) & 0xFF) * factor))
+    const b = Math.min(255, Math.round((color & 0xFF) * factor))
+    return (r << 16) | (g << 8) | b
   }
 
   /**
@@ -240,38 +346,7 @@ export class LetterTile extends Phaser.GameObjects.Container {
    */
   public redrawBackground(revealed: boolean): void {
     if (this.tileType !== 'letter') return
-
-    this.background.clear()
-
-    const fillColor = revealed
-      ? TILE_CONFIG.revealedColor
-      : TILE_CONFIG.backgroundColor
-
-    this.background.fillStyle(
-      Phaser.Display.Color.HexStringToColor(fillColor).color,
-      1
-    )
-    this.background.fillRoundedRect(
-      -TILE_WIDTH / 2,
-      -TILE_HEIGHT / 2,
-      TILE_WIDTH,
-      TILE_HEIGHT,
-      TILE_CONFIG.cornerRadius
-    )
-
-    // Draw border
-    this.background.lineStyle(
-      TILE_CONFIG.borderWidth,
-      Phaser.Display.Color.HexStringToColor(TILE_CONFIG.borderColor).color,
-      1
-    )
-    this.background.strokeRoundedRect(
-      -TILE_WIDTH / 2,
-      -TILE_HEIGHT / 2,
-      TILE_WIDTH,
-      TILE_HEIGHT,
-      TILE_CONFIG.cornerRadius
-    )
+    this.drawModernTileBackground(revealed)
   }
 
   /**
