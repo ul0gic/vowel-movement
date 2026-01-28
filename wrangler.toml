@@ -1,16 +1,9 @@
 name = "vowel-movement"
-main = "dist/index.html"
 compatibility_date = "2024-01-01"
 
-# Static assets configuration
+# Static assets only - no worker script needed
 [assets]
 directory = "./dist"
-
-# Optional: Custom domain
-# routes = [
-#   { pattern = "vowelmovement.com/*", zone_name = "vowelmovement.com" }
-# ]
-
-# Environment variables (if needed)
-[vars]
-ENVIRONMENT = "production"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "single-page-application"
