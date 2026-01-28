@@ -80,6 +80,14 @@ export class GameScene extends Phaser.Scene {
   /** Spin button */
   private spinButton!: Button
 
+  /** Game session stats for history tracking */
+  private sessionStats = {
+    puzzlesSolved: 0,
+    puzzlesAttempted: 0,
+    bankrupts: 0,
+    vowelsPurchased: 0,
+  }
+
   constructor() {
     super({ key: SceneKeys.GAME })
   }
@@ -91,6 +99,14 @@ export class GameScene extends Phaser.Scene {
     // Reset score for new game
     this.registry.set('score', 0)
     this.lastWedgeResult = null
+
+    // Reset session stats for game history
+    this.sessionStats = {
+      puzzlesSolved: 0,
+      puzzlesAttempted: 1, // Start with 1 since we're attempting the first puzzle
+      bankrupts: 0,
+      vowelsPurchased: 0,
+    }
 
     // Get a random phrase from PhraseManager
     const phraseManager = getPhraseManager()
@@ -206,6 +222,8 @@ export class GameScene extends Phaser.Scene {
       if (!result.success) {
         this.showUIMessage(this.getErrorMessage(result.error), colors.warning, 1500)
       } else {
+        // Track for game history
+        this.sessionStats.vowelsPurchased++
         // Disable the letter on keyboard
         this.keyboard.disableLetter(letter)
       }
@@ -244,6 +262,9 @@ export class GameScene extends Phaser.Scene {
 
     // Bankrupt - show feedback with explosion particles and hit pause
     this.gameState.on(GameStateEvents.BANKRUPT, (data: { lostScore: number }) => {
+      // Track for game history
+      this.sessionStats.bankrupts++
+
       // Play bankrupt sound
       getAudioSystem().playBankrupt()
 
@@ -382,6 +403,9 @@ export class GameScene extends Phaser.Scene {
    * Handle round won
    */
   private handleRoundWon(data: { finalScore: number; phrase: string }): void {
+    // Track for game history
+    this.sessionStats.puzzlesSolved++
+
     // Play win fanfare
     getAudioSystem().playWinFanfare()
 
@@ -751,6 +775,9 @@ export class GameScene extends Phaser.Scene {
     if (selection) {
       this.currentPhrase = selection.phrase
 
+      // Track for game history (new puzzle attempted)
+      this.sessionStats.puzzlesAttempted++
+
       // Update phrase board
       this.phraseBoard.setPhrase(this.currentPhrase.phrase, this.currentPhrase.category)
       animateBoardEntry(this, this.phraseBoard)
@@ -856,6 +883,16 @@ export class GameScene extends Phaser.Scene {
     save.saveHighScore(finalScore)
     save.addToTotalScore(finalScore)
     save.recordGamePlayed()
+
+    // Add game to history
+    save.addGameRecord({
+      score: finalScore,
+      puzzlesSolved: this.sessionStats.puzzlesSolved,
+      puzzlesAttempted: this.sessionStats.puzzlesAttempted,
+      bankrupts: this.sessionStats.bankrupts,
+      vowelsPurchased: this.sessionStats.vowelsPurchased,
+      won: this.sessionStats.puzzlesSolved > 0,
+    })
 
     // Update registry for GameOverScene
     this.registry.set('highScore', save.getHighScore())
